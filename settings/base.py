@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -168,7 +169,7 @@ LOGGING = {
 
 # LDAP Server
 LDAP_AUTH_URL = "ldap://localhost:389"
-# LTS
+# 关闭LTS
 LDAP_AUTH_USE_TLS = False
 LDAP_AUTH_SEARCH_BASE = "dc=dook,dc=com"
 # 认证用户类型，那些类型的用户可以登录
