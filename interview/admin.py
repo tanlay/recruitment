@@ -74,18 +74,30 @@ class CandidateAdmin(admin.ModelAdmin):
         for g in user.groups.all():
             group_names.append(g.name)
         return group_names
-
     # get_readonly_fields 这个方法能获取到readonly_fields
     def get_readonly_fields(self, request, obj):
         # 取出用户所在组名
         group_names = self.get_group_names(request.user)
-        # 如果interview在这个角色列表中，
+        # 如果interview在这个群组里面，
         if 'interview' in group_names:
             logger.info(f"interview is user's for {request.user.username}")
             # 返回readonly_field所取的字段
             return ('first_interviewer_user', 'second_interviewer_user',)
         # hr不返回
         return ()
+
+    # 设置字段批量编辑
+    # list_editable = ('first_interviewer_user','second_interviewer_user')
+    def get_list_editable(self,request):
+        group_names = self.get_group_names(request.user)
+        # 如果是超级管理员或者hr在这个群组里面
+        if request.user.is_superuser or 'hr' in group_names:
+            return ('first_interviewer_user', 'second_interviewer_user',)
+        return ()
+    #覆盖modelAdmin父类的get_changelist
+    def get_changelist_instance(self, request):
+        self.list_editable = self.get_list_editable(request)
+        return super(CandidateAdmin, self).get_changelist_instance(request)
 
     # 设置字段分组展示字段
     fieldsets = (
