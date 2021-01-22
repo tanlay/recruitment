@@ -66,19 +66,39 @@ class CandidateAdmin(admin.ModelAdmin):
 
     # 搜索,查询字段
     search_fields = ('username', 'phone', 'email', 'bachelor_school')
-    # 设置字段分组
+
+    # 设置字段只读
+    # readonly_fields = ('first_interviewer_user','second_interviewer_user')
+    def get_group_names(self, user):
+        group_names = []
+        for g in user.groups.all():
+            group_names.append(g.name)
+        return group_names
+
+    # get_readonly_fields 这个方法能获取到readonly_fields
+    def get_readonly_fields(self, request, obj):
+        # 取出用户所在组名
+        group_names = self.get_group_names(request.user)
+        # 如果interview在这个角色列表中，
+        if 'interview' in group_names:
+            logger.info(f"interview is user's for {request.user.username}")
+            # 返回readonly_field所取的字段
+            return ('first_interviewer_user', 'second_interviewer_user',)
+        # hr不返回
+        return ()
+
+    # 设置字段分组展示字段
     fieldsets = (
-        ('用户基础信息', {'fields': (("userid", "username", "city", "phone"), ("email", "apply_position", "born_address"),
+        ('面试者信息', {'fields': (("userid", "username", "city", "phone"), ("email", "apply_position", "born_address"),
                                ("gender", "candidate_remark"), ("bachelor_school", "master_school", "doctor_school"),
                                ("major", "degree"), ("test_score_of_general_ability", "paper_score"), "last_editor")}),
-        ('第一轮面试记录', {'fields': (
-        ("first_score", "first_learning_ability", "first_professional_competency"), "first_advantage",
+        ('第一轮面试', {'fields': ("first_score", ("first_learning_ability", "first_professional_competency"), "first_advantage",
         "first_disadvantage", "first_result", "first_recommend_position", "first_interviewer_user", "first_remark")}),
-        ('复试面试记录', {'fields': (("second_score", "second_learning_ability", "second_professional_competency"),
+        ('第二轮面试(专业复试)', {'fields': ("second_score", ("second_learning_ability", "second_professional_competency"),
                                ("second_pursue_of_excellence", "second_communication_ability", "second_pressure_score"),
                                "second_advantage", "second_disadvantage", "second_result", "second_recommend_position",
                                "second_interviewer_user", "second_remark")}),
-        ('HR面试记录', {'fields': (("hr_score", "hr_responsibility", "hr_communication_ability"),
+        ('HR面试', {'fields': ("hr_score", ("hr_responsibility", "hr_communication_ability"),
                                ("hr_logic_ability", "hr_potential", "hr_stability"), "hr_advantage", "hr_disadvantage",
                                "hr_result", "hr_interviewer_user", "hr_remark")}),
     )
