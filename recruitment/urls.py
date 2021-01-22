@@ -15,8 +15,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.utils.translation import gettext as _
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('jobs.urls')),
 ]
+
+# 增加站点标题
+admin.site.site_header = _('匠果科技招聘管理系统')
