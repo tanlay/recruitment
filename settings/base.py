@@ -186,3 +186,6 @@ LDAP_AUTH_CONNECTION_USERNAME = None
 LDAP_AUTH_CONNECTION_PASSWORD = None
 # 配置使用ldap登录，也可使用django自带的登录认证服务登录
 AUTHENTICATION_BACKENDS = {"django_python3_ldap.auth.LDAPBackend", 'django.contrib.auth.backends.ModelBackend',}
+
+# 钉钉webhook
+DINGTALK_WEB_HOOK = None

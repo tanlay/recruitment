@@ -4,6 +4,7 @@ from .models import Candidate
 from django.db.models import Q
 # from interview.candidate_fieldset import default_fieldsets, default_fieldsets_first, default_fieldsets_second
 from interview import candidate_fieldset as cf
+from interview import dingtalk
 
 import logging
 import csv
@@ -16,7 +17,19 @@ exportabel_fields = ('username', 'city', 'phone', 'bachelor_school', 'master_sch
                      'first_interviewer_user', 'second_result', 'second_interviewer_user', 'hr_result',
                      'hr_interviewer_user', 'first_score', 'second_score', 'hr_score')
 
+# define notify action
+def notify_interviewer(modeladmin, request, queryset):
+    candidates = ""
+    interviewers = ""
+    for obj in queryset:
+        candidates = obj.username + "," + candidates
+        interviewers = obj.first_interviewer_user.username + "," + interviewers
+        # 还需要处理interviewers去重
+    dingtalk.send(f"\n候选人: {candidates} 进入面试环节\n。亲爱的面试官，请做好准备面试：{interviewers}")
 
+notify_interviewer.short_description = '通知一面面试官'
+
+# define export action
 def export_model_as_csv(modeladmin, request, queryset):
     """
     通过定义action,在action方法里实现导出逻辑，把函数方法注册到admin的action里面，界面上就会多出导出菜单
@@ -55,7 +68,7 @@ export_model_as_csv.allowed_permissions = ('export',)
 # 候选人管理
 class CandidateAdmin(admin.ModelAdmin):
     #
-    actions = [export_model_as_csv, ]
+    actions = [export_model_as_csv, notify_interviewer]
 
     # 检测用户是否有导出权限
     def has_export_permission(self, request):
