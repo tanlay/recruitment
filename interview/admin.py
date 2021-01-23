@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.http.response import HttpResponse
 from .models import Candidate
+from django.db.models import Q
+# from interview.candidate_fieldset import default_fieldsets, default_fieldsets_first, default_fieldsets_second
+from interview import candidate_fieldset as cf
 
 import logging
 import csv
@@ -28,6 +31,7 @@ def export_model_as_csv(modeladmin, request, queryset):
     # 写入表头
     writer = csv.writer(response)
     writer.writerow(
+        # 查询到verboes_name填入csv表头
         [queryset.model._meta.get_field(f).verbose_name.title() for f in field_list]
     )
     for obj in queryset:
@@ -45,12 +49,20 @@ def export_model_as_csv(modeladmin, request, queryset):
 
 # 定义函数属性
 export_model_as_csv.short_description = '导出为CSV文件'
+export_model_as_csv.allowed_permissions = ('export',)
 
 
 # 候选人管理
 class CandidateAdmin(admin.ModelAdmin):
     #
     actions = [export_model_as_csv, ]
+
+    # 检测用户是否有导出权限
+    def has_export_permission(self, request):
+        opts = self.opts
+        # return request.user.has_perm('%s.%s' % (opts.app_label, "export"))
+        return request.user.has_perm(f'{opts.app_label}.{"export"}')
+
 
     # 设置不显示的字段
     exclude = ('creator', 'created_time', 'updated_time')
@@ -67,20 +79,33 @@ class CandidateAdmin(admin.ModelAdmin):
     # 搜索,查询字段
     search_fields = ('username', 'phone', 'email', 'bachelor_school')
 
-    # 设置字段只读
-    # readonly_fields = ('first_interviewer_user','second_interviewer_user')
+    #获取组名
     def get_group_names(self, user):
         group_names = []
         for g in user.groups.all():
             group_names.append(g.name)
         return group_names
+
+    # 对于非管理员，非HR，获取一面面试官或者二面面试官的候选人集合
+    def get_queryset(self, request):   # show data only owner by user
+        qs = super(CandidateAdmin, self).get_queryset(request)
+        group_names = self.get_group_names(request.user)
+        if request.user.is_superuser or 'hr' in group_names:
+            return qs
+        return Candidate.objects.filter(
+            # 一面面试官等于当前用户或二面面试官等于当前用户
+            Q(first_interviewer_user=request.user) | Q(second_interviewer_user=request.user)
+        )
+
+    # 设置字段只读
+    # readonly_fields = ('first_interviewer_user','second_interviewer_user')
     # get_readonly_fields 这个方法能获取到readonly_fields
     def get_readonly_fields(self, request, obj):
         # 取出用户所在组名
         group_names = self.get_group_names(request.user)
         # 如果interview在这个群组里面，
-        if 'interview' in group_names:
-            logger.info(f"interview is user's for {request.user.username}")
+        if 'interviewer' in group_names:
+            logger.info(f"interviewer is user's for {request.user.username}")
             # 返回readonly_field所取的字段
             return ('first_interviewer_user', 'second_interviewer_user',)
         # hr不返回
@@ -99,21 +124,17 @@ class CandidateAdmin(admin.ModelAdmin):
         self.list_editable = self.get_list_editable(request)
         return super(CandidateAdmin, self).get_changelist_instance(request)
 
-    # 设置字段分组展示字段
-    fieldsets = (
-        ('面试者信息', {'fields': (("userid", "username", "city", "phone"), ("email", "apply_position", "born_address"),
-                               ("gender", "candidate_remark"), ("bachelor_school", "master_school", "doctor_school"),
-                               ("major", "degree"), ("test_score_of_general_ability", "paper_score"), "last_editor")}),
-        ('第一轮面试', {'fields': ("first_score", ("first_learning_ability", "first_professional_competency"), "first_advantage",
-        "first_disadvantage", "first_result", "first_recommend_position", "first_interviewer_user", "first_remark")}),
-        ('第二轮面试(专业复试)', {'fields': ("second_score", ("second_learning_ability", "second_professional_competency"),
-                               ("second_pursue_of_excellence", "second_communication_ability", "second_pressure_score"),
-                               "second_advantage", "second_disadvantage", "second_result", "second_recommend_position",
-                               "second_interviewer_user", "second_remark")}),
-        ('HR面试', {'fields': ("hr_score", ("hr_responsibility", "hr_communication_ability"),
-                               ("hr_logic_ability", "hr_potential", "hr_stability"), "hr_advantage", "hr_disadvantage",
-                               "hr_result", "hr_interviewer_user", "hr_remark")}),
-    )
 
+
+    # 一面面试官仅填写一面反馈，二面面试官仅填写二面反馈
+    def get_fieldsets(self, request, obj=None):
+        group_names = self.get_group_names(request.user)
+        # 如果登录用户为一面面试官，并在组里面
+        if 'interviewer' in group_names and obj.first_interviewer_user == request.user:
+            return cf.default_fieldsets_first
+        # 如果登录用户为二面面试官，并在组里面
+        if 'interviewer' in group_names and obj.second_interviewer_user == request.user:
+            return cf.default_fieldsets_second
+        return cf.default_fieldsets
 
 admin.site.register(Candidate, CandidateAdmin)

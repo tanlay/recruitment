@@ -102,5 +102,12 @@ class Candidate(models.Model):
         verbose_name = '应聘者'
         verbose_name_plural = '应聘者'
 
+        # 自定义权限
+        permissions = [
+            ('export', 'Can export candidate list'),
+            ('notify', 'nofity interviewer for candidate review'),
+        ]
+
+
     def __str__(self):
         return self.username
